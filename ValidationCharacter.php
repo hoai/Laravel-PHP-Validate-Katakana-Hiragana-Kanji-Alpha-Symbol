@@ -55,4 +55,60 @@ trait ValidationCharacter
 
         return true;
     }
+    /**
+     * HMLong - Validate Full Width | 2 byte | zenkaku_only
+     * @param String $attribute
+     * @param mixed $value
+     * @SuppressWarnings("UnusedFormalParameter")
+     * @return boolean
+     */
+    protected function validateFullWidth($attribute, $value)
+    {
+        $encoding = "UTF-8";
+        // Get length of string
+        $len = mb_strlen($value, $encoding);
+        // Check each character
+        for ($i = 0; $i < $len; $i++) {
+            $char = mb_substr($value, $i, 1, $encoding);
+            // Check for non-printable characters
+            if (ctype_print($char)) {
+                return false;
+            }
+            // Convert to SHIFT-JIS to include kana characters
+            $char = mb_convert_encoding($char, 'SJIS', $encoding);
+            // Check if string lengths match
+            if (strlen($char) === mb_strlen($char, 'SJIS')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Replace Message for Special Case on InCode
+     * @param $message
+     * @param $attribute
+     * @param $rule
+     * @param $parameters
+     * @return string
+     */
+    protected function replaceInCode($message, $attribute, $rule, $parameters)
+    {
+        $value = \Request::get($attribute, \Request::get('data'));
+        $halfWidthKata = '/^([ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝﾞ])*$/';
+        $halfWidthNumber = '/^([0-9])*$/';
+        $halfWidthAlpha = '/^([a-zA-Z])*$/';
+        $halfWidthSymbol = "/^[ !\"#$%&'()*+,-.\/:;<=>?@\]\[\\\^_`{|}~]+$/u";
+        if (
+            (in_array('katakana', $parameters) && preg_match($halfWidthKata, $value)) ||
+            (in_array('fullwidth_number', $parameters) && preg_match($halfWidthNumber, $value)) ||
+            (in_array('fullwidth_alpha', $parameters) && preg_match($halfWidthAlpha, $value)) ||
+            (in_array('fullwidth_symbol', $parameters) && preg_match($halfWidthSymbol, $value))
+        ) {
+            $message = '全角で入力してください';
+        }
+
+        return $message;
+    }
 }
